@@ -1,0 +1,311 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minesweeper</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      text-align: center;
+    }
+
+    .game {
+      width: 100%;
+      max-width: 360px;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+    }
+
+    #status {
+      color: #cbd5e1;
+      min-height: 24px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .tile {
+      aspect-ratio: 1;
+      border: 2px solid #475569;
+      border-radius: 12px;
+      background: #334155;
+      color: white;
+      font-size: 30px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.15s;
+    }
+
+    .tile:hover:not(:disabled) {
+      background: #475569;
+      transform: scale(1.03);
+    }
+
+    .tile.safe {
+      background: #166534;
+      border-color: #22c55e;
+    }
+
+    .tile.bomb {
+      background: #991b1b;
+      border-color: #ef4444;
+    }
+
+    .tile:disabled {
+      cursor: default;
+    }
+
+    #prank {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: linear-gradient(
+        135deg,
+        #7c3aed,
+        #db2777,
+        #0891b2,
+        #16a34a
+      );
+      background-size: 300% 300%;
+      animation: colors 5s ease infinite;
+    }
+
+    @keyframes colors {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .prank-content {
+      background: rgba(15, 23, 42, 0.9);
+      padding: 32px 24px;
+      border-radius: 20px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 15px 50px #0005;
+    }
+
+    .prank-content h1 {
+      font-size: clamp(28px, 8vw, 48px);
+    }
+
+    #stopBtn {
+      margin-top: 20px;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 10px;
+      background: white;
+      color: #111827;
+      font-size: 17px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #error {
+      display: none;
+      color: #fca5a5;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="game">
+    <h1>Minesweeper</h1>
+    <p id="status">Find the safe tiles. Avoid the bombs!</p>
+    <p>By: John</p>
+
+    <div class="grid" id="grid"></div>
+    <p id="error"></p>
+  </main>
+
+  <section id="prank">
+    <div class="prank-content">
+      <h1>HAHHAHA</h1>
+      <p>UTRO PA HAHAHHA</p>
+      <button id="stopBtn">Stop / Play Again</button>
+    </div>
+  </section>
+
+  <audio id="music" loop></audio>
+
+  <script>
+    const grid = document.getElementById("grid");
+    const statusText = document.getElementById("status");
+    const prank = document.getElementById("prank");
+    const music = document.getElementById("music");
+    const stopBtn = document.getElementById("stopBtn");
+    const errorBox = document.getElementById("error");
+
+    const DB_NAME = "PrankGameDB";
+    const STORE_NAME = "settings";
+
+    let tiles = [];
+    let gameOver = false;
+    let audioURL = null;
+    let volume = 0.5;
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME);
+          }
+        };
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function loadSettings() {
+      const db = await openDB();
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const request = tx.objectStore(STORE_NAME).get("gameSettings");
+
+        request.onsuccess = () => {
+          db.close();
+          resolve(request.result);
+        };
+
+        request.onerror = () => {
+          db.close();
+          reject(request.error);
+        };
+      });
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function startGame() {
+      gameOver = false;
+      grid.innerHTML = "";
+      prank.style.display = "none";
+      statusText.textContent = "Find the safe tiles. Avoid the bombs!";
+
+      // Exactly 5 bombs and 4 safe tiles.
+     tiles = shuffle([
+  true, true,
+  false, false, false, false, false, false, false
+]);
+
+      tiles.forEach((isBomb, index) => {
+        const button = document.createElement("button");
+        button.className = "tile";
+        button.textContent = "?";
+        button.setAttribute("aria-label", "Hidden tile " + (index + 1));
+
+        button.addEventListener("click", () => {
+          if (gameOver || button.disabled) return;
+
+          button.disabled = true;
+
+          if (isBomb) {
+            button.textContent = "💣";
+            button.classList.add("bomb");
+            triggerPrank();
+          } else {
+            button.textContent = "😂";
+            button.classList.add("safe");
+
+            const safeFound = grid.querySelectorAll(".safe").length;
+            statusText.textContent =
+              "Safe tiles found: " + safeFound + " / 4";
+
+            if (safeFound === 4) {
+              statusText.textContent = "You found all 4 safe tiles!";
+            }
+          }
+        });
+
+        grid.appendChild(button);
+      });
+    }
+
+    async function triggerPrank() {
+      gameOver = true;
+      prank.style.display = "flex";
+
+      try {
+        music.currentTime = 0;
+        await music.play();
+      } catch (error) {
+        // Some browsers require an audio interaction first.
+        // The prank screen still appears.
+      }
+    }
+
+    stopBtn.addEventListener("click", () => {
+      music.pause();
+      music.currentTime = 0;
+      startGame();
+    });
+
+    async function init() {
+      try {
+        const settings = await loadSettings();
+
+        if (!settings || !settings.audio) {
+          errorBox.style.display = "block";
+          errorBox.textContent =
+            "Game setup is missing. The owner needs to configure the music first.";
+          grid.style.display = "none";
+          statusText.textContent = "";
+          return;
+        }
+
+        volume = Number(settings.volume ?? 0.5);
+        music.volume = Math.max(0, Math.min(1, volume));
+
+        audioURL = URL.createObjectURL(settings.audio);
+        music.src = audioURL;
+
+        startGame();
+      } catch (error) {
+        errorBox.style.display = "block";
+        errorBox.textContent =
+          "Could not load the game settings. Please contact the owner.";
+        grid.style.display = "none";
+        statusText.textContent = "";
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
