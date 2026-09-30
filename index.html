@@ -276,36 +276,14 @@
       startGame();
     });
 
-    async function init() {
-      try {
-        const settings = await loadSettings();
+    function init() {
+  music.src = "./music.mp3";
+  music.volume = 0.5;
 
-        if (!settings || !settings.audio) {
-          errorBox.style.display = "block";
-          errorBox.textContent =
-            "Game setup is missing. The owner needs to configure the music first.";
-          grid.style.display = "none";
-          statusText.textContent = "";
-          return;
-        }
+  startGame();
+}
 
-        volume = Number(settings.volume ?? 0.5);
-        music.volume = Math.max(0, Math.min(1, volume));
-
-        audioURL = URL.createObjectURL(settings.audio);
-        music.src = audioURL;
-
-        startGame();
-      } catch (error) {
-        errorBox.style.display = "block";
-        errorBox.textContent =
-          "Could not load the game settings. Please contact the owner.";
-        grid.style.display = "none";
-        statusText.textContent = "";
-      }
-    }
-
-    init();
+init();
   </script>
 </body>
 </html>
