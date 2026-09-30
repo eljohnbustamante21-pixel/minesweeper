@@ -161,7 +161,8 @@
 
   </section>
 
-  <audio id="music"></audio>
+  <!-- MUSIC -->
+  <audio id="music" preload="auto"></audio>
 
   <script>
 
@@ -172,15 +173,13 @@
     const stopBtn = document.getElementById("stopBtn");
 
     /*
-      YOUR MUSIC FILE
-      The filename below matches the MP3
-      you uploaded to GitHub.
+      MUSIC FILE
+      GitHub Pages direct link
     */
 
     music.src =
-      "./66cd129c-1e65-466f-adec-4e32f89aeaa7.mp3";
+      "https://eljohnbustamante21-pixel.github.io/minesweeper/66cd129c-1e65-466f-adec-4e32f89aeaa7.mp3";
 
-    // 50% volume
     music.volume = 0.5;
 
     let gameOver = false;
@@ -243,7 +242,7 @@
           "Hidden tile " + (index + 1)
         );
 
-        button.addEventListener("click", async () => {
+        button.addEventListener("click", () => {
 
           if (gameOver || button.disabled) {
             return;
@@ -259,22 +258,26 @@
 
             gameOver = true;
 
+            /*
+              SHOW PRANK SCREEN
+            */
+
             prank.style.display = "flex";
 
-            try {
+            /*
+              PLAY MUSIC
+            */
 
-              music.currentTime = 0;
+            music.currentTime = 0;
 
-              await music.play();
-
-            } catch (error) {
+            music.play().catch(error => {
 
               console.log(
-                "Audio could not start:",
+                "Music error:",
                 error
               );
 
-            }
+            });
 
           } else {
 
@@ -303,6 +306,10 @@
       });
     }
 
+    /*
+      STOP MUSIC / PLAY AGAIN
+    */
+
     stopBtn.addEventListener("click", () => {
 
       music.pause();
@@ -312,6 +319,10 @@
       startGame();
 
     });
+
+    /*
+      START GAME
+    */
 
     startGame();
 
